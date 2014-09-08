@@ -1,0 +1,42 @@
+html, body {
+	background-color: #444444;
+	font-family: 'Quicksand', sans-serif;;
+	font-size: 15px;
+	height: 100%;
+}
+
+.center {
+	margin-left:auto;
+	margin-right:auto;
+	text-align: center;
+}
+
+#power {
+	height: 480px;
+	width: 480px;
+  	display: block;
+  	margin:auto;
+  	position: relative;
+/*  	left: -20px;*/
+}
+
+.svgwrapper {
+	display:block;
+	height: 100%;
+}
+
+
+/*.donut-widget {
+	position: relative;
+	padding: 0px 0px 0px 0px;
+	height: 400px;
+	margin-top: 0px; 
+	margin-bottom: 0px; 
+	margin-left: 0px; 
+	margin-right: 0px
+}
+*/
+
+.floatcontentright {
+	text-align: right;
+}
