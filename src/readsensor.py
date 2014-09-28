@@ -1,12 +1,12 @@
 import time
 import sys
-import pyserial
+import serial
 from influxdb import client as influxdb
 
 '''
 Configuration params
 '''
-SERIAL_DEVICE = '/dev/ttyUSB1'
+SERIAL_DEVICE = '/dev/ttyUSB0'
 INFLUX_SERVER_ADDR = '192.168.1.102'
 INFLUX_SERVER_PORT = 8086
 
@@ -28,8 +28,8 @@ def read_wattsec():
 def convert_to_power():
     pass
 
-def grab_raw_data():
-    blob = serial.read(200)
+def grab_raw_data(comm):
+    blob = comm.read(200)
     components = [ord(b) for b in blob]
 
     # Look for the first occurrence of the start byte sequence: 254, 255, 3 and the end of the sequence
@@ -55,15 +55,22 @@ def grab_raw_data():
         return components[start_idx:end_idx+1]
 
 def main():
+    comm = None
+
     # Open the serial port
-    try:
-        comm = serial.Serial(SERIAL_DEVICE, baudrate=19200, bytesize=serial.EIGHTBITS, \
-                             parity = serial.PARITY_NONE, stopbits = serial.STOPBITS_ONE, timeout = 1)
-    except Exception as e:
-        print('Error opening serial channel on dev %s. Error details: %s' % (str(SERIAL_DEVICE, str(e))))
+    while True: 
+        try:
+            comm = serial.Serial(SERIAL_DEVICE, baudrate=19200, bytesize=serial.EIGHTBITS, \
+                                 parity = serial.PARITY_NONE, stopbits = serial.STOPBITS_ONE, timeout = 1)
+        except Exception as e:
+            print('Error opening serial channel on dev %s. Error details: %s' % (str(SERIAL_DEVICE), str(e)))
+            time.sleep(1)
+
+        else:
+            break
 
     while True:
-        raw_data = grab_raw_data()
+        raw_data = grab_raw_data(comm)
         if raw_data:
             voltage = read_voltage(raw_data)
             data_point = {'voltage' : voltage}
