@@ -1,5 +1,4 @@
 import time
-import sys
 import serial
 import requests
 from influxdb import client as influxdb
@@ -13,13 +12,24 @@ INFLUX_SERVER_PORT = 8086
 INFLUX_USERNAME = 'root'
 INFLUX_PASSWORD = 'root'
 INFLUX_DBNAME = 'power'
+
 def write_to_db(db, data_point):
     data_to_send = [
                     {
                         "name": 'power',
                         "time": time.time(),
-                        "columns": ['voltage'],
-                        "points": [[data_point['voltage']]]
+                        "columns": [
+                            'voltage',
+                            'current',
+                            'power'
+                        ],
+                        "points": [
+                            [
+                                data_point['voltage'],
+                                data_point['current'],
+                                data_point['power']
+                            ]
+                        ]
                         }
                     ]
     try:
@@ -32,19 +42,33 @@ def write_to_db(db, data_point):
     print('Sent: %s ' % str(data_to_send))
 
 def read_voltage(raw_data):
-    b0 = raw_data[3]
-    b1 = raw_data[4]
+    (b0, b1) = raw_data[3:5]
     bin_value = (b0 << 8) | b1
     return float(bin_value) / 10
 
-def read_current():
-    pass
+'''
+Reads current only on CH1 right now
+'''
+def read_current(raw_data):
+    (b0, b1) = raw_data[33:35]
+    bin_value = (b0 << 8) | b1
+    return float(bin_value) / 100   # Amps
 
-def read_wattsec():
-    pass
+'''
+Reads wattsec only on CH1 right now
+'''
+def read_wattsec(raw_data):
+    (b0,b1,b2,b3,b4) = raw_data[5:10]
+    bin_value = b4<<32|b3<<24|b2<<16|b1<<8|b0
+    return int(bin_value)       # watts seconds
 
-def convert_to_power():
-    pass
+def read_sec(raw_data):
+    (b0,b1,b2) = raw_data[37:40]
+    bin_value = b2<<16||b1<<8|b0
+    return int(bin_value)
+
+def convert_to_power(last_ws, current_ws, last_sec, current_sec):
+    return float((current_ws - last_ws) / (current_sec - last_sec))
 
 def grab_raw_data(comm):
     blob = comm.read(200)
@@ -73,7 +97,14 @@ def grab_raw_data(comm):
         return components[start_idx:end_idx+1]
 
 def main():
+    # Serial object
     comm = None
+
+    # Vars used to calculate power
+    last_ws = 0
+    current_ws = 0
+    last_sec = 0
+    current_sec = 0
 
     '''
     Open the serial port
@@ -113,26 +144,20 @@ def main():
         raw_data = grab_raw_data(comm)
         if raw_data:
             voltage = read_voltage(raw_data)
-            data_point = {'voltage': voltage}
+            current = read_current(raw_data)
+            last_ws = current_ws
+            last_sec = current_sec
+            current_ws = read_wattsec()
+            current_sec = read_sec()
+            power = convert_to_power(last_ws, current_ws, last_sec, current_sec)
+
+            data_point = {'voltage': voltage,
+                          'current': current,
+                          'power': power
+            }
             write_to_db(db, data_point)
 
         time.sleep(1)
 
 if __name__ == '__main__':
     main()
-
-
-    # # Send the start byte
-    # while comm.write('')
-    # try:
-    #     comm.write('\xfc')
-    #     resp = comm.read(1)
-    # except serial.serialutil.SerialException as e:
-    #     print('Error sending init byte to device. Error details: %s' % str(e))
-    # else:
-    #     while resp != '\xfc':
-    #         time.sleep(1)
-# write('\xfc')
-# comm.read()
-# comm.write("TOG")
-# comm.write("XTD")
