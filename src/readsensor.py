@@ -1,6 +1,7 @@
 import time
 import sys
 import serial
+import requests
 from influxdb import client as influxdb
 
 '''
@@ -9,9 +10,22 @@ Configuration params
 SERIAL_DEVICE = '/dev/ttyUSB0'
 INFLUX_SERVER_ADDR = '192.168.1.102'
 INFLUX_SERVER_PORT = 8086
+INFLUX_USERNAME = 'root'
+INFLUX_PASSWORD = 'root'
+INFLUX_DBNAME = 'power'
+def write_to_db(db, data_point):
+    data_to_send = {'name': 'power',
+                    'time': time.time(),
+                    'columns': ['voltage'],
+                    'points': data_point['voltage']}
+    try:
+        db.write_points(data_to_send)
+    except requests.exceptions.RequestException as e:
+        print('Influx connection error: ' + str(e))
+    except Exception as e:
+        print('Influx client error: ' + str(e))
 
-def write_to_db(data_point):
-    print data_point
+    print('Sent: %s ' % str(data_point))
 
 def read_voltage(raw_data):
     b0 = raw_data[3]
@@ -57,7 +71,9 @@ def grab_raw_data(comm):
 def main():
     comm = None
 
-    # Open the serial port
+    '''
+    Open the serial port
+    '''
     while True: 
         try:
             comm = serial.Serial(SERIAL_DEVICE, baudrate=19200, bytesize=serial.EIGHTBITS, \
@@ -69,12 +85,32 @@ def main():
         else:
             break
 
+    '''
+    InfluxDB client
+    '''
+    try:
+        db = influxdb.InfluxDBClient(INFLUX_SERVER_ADDR, INFLUX_SERVER_PORT, \
+                                     INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DBNAME)
+    except Exception as e:
+        print('Exception in DB connection: %s' % str(e))
+
+    try:
+        db_list = db.get_database_list()
+        if not db_list:
+            db.create_database(INFLUX_DBNAME)
+
+    except Exception as e:
+        print('Exception in DB init: %s' % str(e))
+
+    '''
+    Main Loop
+    '''
     while True:
         raw_data = grab_raw_data(comm)
         if raw_data:
             voltage = read_voltage(raw_data)
-            data_point = {'voltage' : voltage}
-            write_to_db(data_point)
+            data_point = {'voltage': voltage}
+            write_to_db(db, data_point)
 
         time.sleep(1)
 
