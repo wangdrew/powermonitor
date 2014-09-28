@@ -14,10 +14,14 @@ INFLUX_USERNAME = 'root'
 INFLUX_PASSWORD = 'root'
 INFLUX_DBNAME = 'power'
 def write_to_db(db, data_point):
-    data_to_send = {'name': 'power',
-                    'time': time.time(),
-                    'columns': ['voltage'],
-                    'points': data_point['voltage']}
+    data_to_send = [
+                    {
+                        "name": 'power',
+                        "time": time.time(),
+                        "columns": ['voltage'],
+                        "points": [[data_point['voltage']]]
+                        }
+                    ]
     try:
         db.write_points(data_to_send)
     except requests.exceptions.RequestException as e:
@@ -25,7 +29,7 @@ def write_to_db(db, data_point):
     except Exception as e:
         print('Influx client error: ' + str(e))
 
-    print('Sent: %s ' % str(data_point))
+    print('Sent: %s ' % str(data_to_send))
 
 def read_voltage(raw_data):
     b0 = raw_data[3]
