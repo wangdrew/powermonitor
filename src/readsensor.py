@@ -33,12 +33,23 @@ def write_to_db(db, dbtop, data_point):
                         ]
                         }
                     ]
-    one_data_to_send = copy.deepcopy(data_to_send)
-    one_data_to_send[0]['columns'].append['time']
-    one_data_to_send[0]['columns'].append['sequence_number']
-    one_data_to_send[0]['points'].append[1411953037959]
-    one_data_to_send[0]['points'].append[1]
-    
+    one_data_to_send = [
+                        {
+                            "name" : 'power',
+                            "columns": [
+                                'time',
+                                'sequence_number',
+                                'power',
+                            ],
+                            "points" : [
+                                [
+                                    1411965459,
+                                    1,
+                                    data_point['power']
+                                ]
+                            ]
+                            }
+                        ]
     print one_data_to_send
     
     try:
