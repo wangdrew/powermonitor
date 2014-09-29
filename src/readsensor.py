@@ -12,8 +12,8 @@ INFLUX_SERVER_PORT = 8086
 INFLUX_USERNAME = 'root'
 INFLUX_PASSWORD = 'root'
 INFLUX_DBNAME = 'power'
-
-def write_to_db(db, data_point):
+INFLUX_DBNAME_ONEPOINT = 'power_now'
+def write_to_db(db, dbtop, data_point):
     data_to_send = [
                     {
                         "name": 'power',
@@ -32,8 +32,13 @@ def write_to_db(db, data_point):
                         ]
                         }
                     ]
+    one_data_to_send = data_to_send
+    one_data_to_send[0]['time'] = 1
+    print one_data_to_send
+    
     try:
         db.write_points(data_to_send)
+        dbtop.write_points(one_data_to_send)
     except requests.exceptions.RequestException as e:
         print('Influx connection error: ' + str(e))
     except Exception as e:
@@ -126,6 +131,8 @@ def main():
     try:
         db = influxdb.InfluxDBClient(INFLUX_SERVER_ADDR, INFLUX_SERVER_PORT, \
                                      INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DBNAME)
+        dbtop = influxdb.InfluxDBClient(INFLUX_SERVER_ADDR, INFLUX_SERVER_PORT, \
+                                     INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DBNAME_ONEPOINT)
     except Exception as e:
         print('Exception in DB connection: %s' % str(e))
 
@@ -133,7 +140,9 @@ def main():
         db_list = db.get_database_list()
         if not db_list:
             db.create_database(INFLUX_DBNAME)
-
+        db_list = dbtop.get_database_list()
+        if not db_list:
+            db.create_database(INFLUX_DBNAME_ONEPOINT)
     except Exception as e:
         print('Exception in DB init: %s' % str(e))
 
@@ -157,7 +166,7 @@ def main():
                           'power': power
             }
             #print('voltage %s current %s, last ws %s, current ws %s, last sec %s, current sec %s, power %s, power_used %s' % (str(voltage), str(current), str(last_ws), str(current_ws), str(last_sec), str(current_sec), str(power), str(power_used)))
-            write_to_db(db, data_point)
+            write_to_db(db, dbtop, data_point)
 
         time.sleep(1)
 
