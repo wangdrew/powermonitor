@@ -2,6 +2,7 @@ import time
 import serial
 import requests
 from influxdb import client as influxdb
+import copy
 
 '''
 Configuration params
@@ -32,8 +33,12 @@ def write_to_db(db, dbtop, data_point):
                         ]
                         }
                     ]
-    one_data_to_send = data_to_send
-    one_data_to_send[0]['time'] = 1
+    one_data_to_send = copy.deepcopy(data_to_send)
+    one_data_to_send[0]['columns'].append['time']
+    one_data_to_send[0]['columns'].append['sequence_number']
+    one_data_to_send[0]['points'].append[1411953037959]
+    one_data_to_send[0]['points'].append[1]
+    
     print one_data_to_send
     
     try:
