@@ -34,10 +34,11 @@ def write_to_db(db, dbtop, data_point):
                         }
                     ]
     one_data_to_send = copy.deepcopy(data_to_send)
-    one_data_to_send[0]['columns'].append['time']
-    one_data_to_send[0]['columns'].append['sequence_number']
-    one_data_to_send[0]['points'].append[1411953037959]
-    one_data_to_send[0]['points'].append[1]
+    print one_data_to_send[0]['columns']
+    one_data_to_send[0]['columns'].append('time')
+    one_data_to_send[0]['columns'].append('sequence_number')
+    one_data_to_send[0]['points'][0].append(1411954516)
+    one_data_to_send[0]['points'][0].append(1)
     
     print one_data_to_send
     
