@@ -52,7 +52,7 @@ Reads current only on CH1 right now
 def read_current(raw_data):
     (b0, b1) = raw_data[33:35]
     bin_value = (b0 << 8) | b1
-    return float(bin_value) / 100   # Amps
+    return float(bin_value) / 1000   # Amps
 
 '''
 Reads wattsec only on CH1 right now
@@ -64,7 +64,7 @@ def read_wattsec(raw_data):
 
 def read_sec(raw_data):
     (b0,b1,b2) = raw_data[37:40]
-    bin_value = b2<<16||b1<<8|b0
+    bin_value = b2<<16|b1<<8|b0
     return int(bin_value)
 
 def convert_to_power(last_ws, current_ws, last_sec, current_sec):
@@ -147,14 +147,16 @@ def main():
             current = read_current(raw_data)
             last_ws = current_ws
             last_sec = current_sec
-            current_ws = read_wattsec()
-            current_sec = read_sec()
+            current_ws = read_wattsec(raw_data)
+            current_sec = read_sec(raw_data)
             power = convert_to_power(last_ws, current_ws, last_sec, current_sec)
+            power_used = float(current_ws/(60*1000))
 
             data_point = {'voltage': voltage,
                           'current': current,
                           'power': power
             }
+            #print('voltage %s current %s, last ws %s, current ws %s, last sec %s, current sec %s, power %s, power_used %s' % (str(voltage), str(current), str(last_ws), str(current_ws), str(last_sec), str(current_sec), str(power), str(power_used)))
             write_to_db(db, data_point)
 
         time.sleep(1)
