@@ -22,13 +22,16 @@ def write_to_db(db, dbtop, data_point):
                         "columns": [
                             'voltage',
                             'current',
-                            'power'
+                            'power',
+                            'power_used'
+                           
                         ],
                         "points": [
                             [
                                 data_point['voltage'],
                                 data_point['current'],
-                                data_point['power']
+                                data_point['power'],
+                                data_point['power_used']
                             ]
                         ]
                         }
@@ -165,12 +168,13 @@ def main():
             current_ws = read_wattsec(raw_data)
             current_sec = read_sec(raw_data)
             power = convert_to_power(last_ws, current_ws, last_sec, current_sec)
-            power_used = float(current_ws/(60*1000))
+            power_used = float(current_ws)/(3600*1000)
 
             data_point = {'voltage': voltage,
                           'current': current,
-                          'power': power
-            }
+                          'power': power,
+                          'power_used': power_used} 
+            
             #print('voltage %s current %s, last ws %s, current ws %s, last sec %s, current sec %s, power %s, power_used %s' % (str(voltage), str(current), str(last_ws), str(current_ws), str(last_sec), str(current_sec), str(power), str(power_used)))
             write_to_db(db, dbtop, data_point)
 
