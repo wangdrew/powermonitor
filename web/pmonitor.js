@@ -1,22 +1,18 @@
 
-pmeas_chartmax = 5000 // Max watts
+pmeas_chartmax = 12000 // Max watts
 
 // Seed values used for debugging
 global_dollar_amt = 3.42
 global_power_usage = 1500
 
-// influxDB access
-host = 'localhost'
-port = 8086
-username = 'root'
-password = 'root'
-database = 'power'
-pmon_influxdb = new InfluxDB(host, port, username, password, database);
+// Influx DB
+influxdb_host = '192.168.1.102'
+influxdb_port = '8086'
 
 function overviewPie() {
 	
 	d3objHandles = {};
-	debug_mode = true;
+	debug_mode = false;
 	  
 	var powermeter = nv.models.pieChart()
 	  .x(function(d) { return d.label })
@@ -46,6 +42,10 @@ function overviewPie() {
 	setInterval( function() { update(); }, updateInterval);
     return;
 
+    function parse_dboutput(data) {
+        this.power_usage = data[0]['points'][0][2]
+        return 
+    }
     
     function update() {
     	
@@ -58,23 +58,29 @@ function overviewPie() {
 				{'label' : 'usage', 'value' : global_power_usage},
 	            {'label' : 'dollar_value', 'value' : global_dollar_amt} ];
 		}
+
 		else {
-			// call for data here
-            // try {
-            //     console.log(pmon_influxdb.readPoint('*','power'))
-            //     console.log(pmon_influxdb.readPoint('*', 'cost'))
-            // } 
-            // catch {
+            dollar_amt = 0.0
+            power_usage = 0
+            power_data_array = null
 
-            // }
-			power_usage = 0
-			dollat_amt = 0
+            try {
+                var xmlHttp = null;
+                xmlHttp = new XMLHttpRequest();
+                xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + "/db/power_now/series?u=root&p=root&q=select%20*%20from%20power%20limit%201", false );
+                xmlHttp.send( null );
+                resp = xmlHttp.responseText
+                power_usage = jQuery.parseJSON(resp)[0]['points'][0][2]
+            }
 
-			data = [ {'label': 'nonusage', 'value' : pmeas_chartmax - power_usage},
-				{'label' : 'usage', 'value' : power_usage},
+            catch(err){
+                console.log('Error getting influx data' + err);
+            }
+
+			data = [ {'label': 'nonusage', 'value' : pmeas_chartmax - this.power_usage},
+				{'label' : 'usage', 'value' : this.power_usage},
 	            {'label' : 'dollar_value', 'value' : dollar_amt} ];
 		}
-
 
 		// Updates text labels    	
         updateLabels(data);
@@ -125,11 +131,6 @@ function overviewPie() {
         .style('font-weight', 'normal')
         .style('font-size', '24px') 
         .text("today");
-
-        // Circle
-        // middle_line = d3.select(renderLocation + ' #psu').append('line')
-        // .attr({'x1': 180, 'y1': 255, 'x2': 320, 'y2': 255})
-        // .style("stroke", "rgb(0,0,0)");
       	
     	this.d3objHandles = {
     			"kwtop" : kwtop_label,
