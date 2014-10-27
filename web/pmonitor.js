@@ -43,8 +43,12 @@ function overviewPie() {
     return;
 
     function parse_dboutput(data) {
-        this.power_usage = data[0]['points'][0][2]
-        return 
+        keys = data[0]['columns']
+        power_usage_idx = keys.indexOf("power")
+        daily_cost_idx = keys.indexOf("daily_cost")
+        this.power_usage = data[0]['points'][0][power_usage_idx]
+        daily_cost_cents = Math.round(data[0]['points'][0][daily_cost_idx] * 100)
+        this.daily_cost = daily_cost_cents / 100
     }
     
     function update() {
@@ -70,7 +74,7 @@ function overviewPie() {
                 xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + "/db/power_now/series?u=root&p=root&q=select%20*%20from%20power%20limit%201", false );
                 xmlHttp.send( null );
                 resp = xmlHttp.responseText
-                power_usage = jQuery.parseJSON(resp)[0]['points'][0][2]
+                parse_dboutput(jQuery.parseJSON(resp))
             }
 
             catch(err){
@@ -79,12 +83,13 @@ function overviewPie() {
 
 			data = [ {'label': 'nonusage', 'value' : pmeas_chartmax - this.power_usage},
 				{'label' : 'usage', 'value' : this.power_usage},
-	            {'label' : 'dollar_value', 'value' : dollar_amt} ];
+	            {'label' : 'dollar_value', 'value' : this.daily_cost} ];
 		}
 
 		// Updates text labels    	
         updateLabels(data);
     	
+        // Updates circle meter
         d3.select('#power')
         	.datum(data.slice(0,2)) 
         	.transition().duration(2000)
