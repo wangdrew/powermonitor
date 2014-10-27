@@ -54,7 +54,7 @@ def write_to_db(db, dbtop, data_point):
                                 [
                                     1411965459,
                                     1,
-                                    data_point['power'].
+                                    data_point['power'],
                                     data_point['daily_cost']
                                 ]
                             ]
@@ -194,12 +194,12 @@ def main():
 
             # Reset daily power usage if after midnight
             time_now = time.localtime()
-            if kwhr_today_start == 0.0 or time_now.tm_hour < last_meas_timestamp.tm_hour
+            if kwhr_today_start == 0.0 or time_now.tm_hour < last_meas_timestamp.tm_hour:
                 kwhr_today_start = power_used
             last_meas_timestamp = time_now
 
             daily_cost = (power_used - kwhr_today_start) * COST_PER_KWHR
-            cumulative_cost = power_used * cost_per_kwhr
+            cumulative_cost = power_used * COST_PER_KWHR
 
             data_point = {'voltage': voltage,
                           'current': current,
