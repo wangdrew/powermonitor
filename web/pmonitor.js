@@ -12,7 +12,7 @@ influxdb_port = '8086'
 function overviewPie() {
 	
 	d3objHandles = {};
-	debug_mode = false;
+	debug_mode = true;
 	  
 	var powermeter = nv.models.pieChart()
 	  .x(function(d) { return d.label })
@@ -23,7 +23,7 @@ function overviewPie() {
 	  .labelType("key") //Configure what type of data to show in the label. Can be "key", "value" or "percent"
 	  .donut(true)          //Turn on Donut mode. Makes pie chart look tasty!
 	  .donutRatio(0.76)     //Configure how big you want the donut hole size to be.
-	  .color(['#555555', '#FF8000'])
+	  .color(['#222222', '#FF8000'])
 	  .height(500)
 	  .width(500)
 	  ;
