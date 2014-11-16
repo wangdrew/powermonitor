@@ -1,18 +1,22 @@
+// Influx DB
+influxdb_host = '0.0.0.0'
+influxdb_port = '8086'
 
+//Query parameters
+power_avg_window = "24h"
+
+//Display parameters
 pmeas_chartmax = 12000 // Max watts
 
 // Seed values used for debugging
 global_dollar_amt = 3.42
 global_power_usage = 1500
 
-// Influx DB
-influxdb_host = '192.168.1.102'
-influxdb_port = '8086'
 
 function overviewPie() {
 	
 	d3objHandles = {};
-	debug_mode = true;
+	debug_mode = false;
 	  
 	var powermeter = nv.models.pieChart()
 	  .x(function(d) { return d.label })
@@ -50,6 +54,12 @@ function overviewPie() {
         daily_cost_cents = Math.round(data[0]['points'][0][daily_cost_idx] * 100)
         this.daily_cost = daily_cost_cents / 100
     }
+
+    function parse_dboutput_power_avg(data) {
+         keys = data[0]['columns']
+         power_avg_idx = keys.indexOf("mean")
+         this.power_avg_usage = data[0]['points'][0][power_avg_idx]
+    }
     
     function update() {
     	
@@ -71,11 +81,24 @@ function overviewPie() {
             try {
                 var xmlHttp = null;
                 xmlHttp = new XMLHttpRequest();
+                
+                // Get instantaneous datapoints - power, cost
                 xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + 
                     "/db/power_now/series?u=root&p=root&q=select%20*%20from%20power%20limit%201", false );
+
                 xmlHttp.send( null );
                 resp = xmlHttp.responseText
                 parse_dboutput(jQuery.parseJSON(resp))
+
+                 // Get 24h average for power
+                xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + 
+                    "/db/powerdb/series?u=root&p=root&q=SELECT%20MEAN(power)%20FROM%20power%20group" +
+                    "%20by%20time(" + power_avg_window + ")%20where%20time%20%3E%20now()%20-%20" + 
+                    power_avg_window + "%20limit%201", false );
+                xmlHttp.send( null );
+                resp = xmlHttp.responseText
+                parse_dboutput_power_avg(jQuery.parseJSON(resp))
+
             }
 
             catch(err){
@@ -126,7 +149,7 @@ function overviewPie() {
         // dollar amount
         dollarDayAmt_label = d3.select('#power')
         .append('text')
-    	.attr({'x': 213, 'y': 325, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
+    	.attr({'x': 270, 'y': 325, 'text-anchor': 'end', 'fill' : '#FFFFFF'})
     	.style('font-weight', 'normal')
     	.style('font-size', '40px') 
     	.text("");
@@ -134,7 +157,7 @@ function overviewPie() {
         // today text
         today_label = d3.select('#power')
         .append('text')
-        .attr({'x': 315, 'y': 325, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
+        .attr({'x': 305, 'y': 325, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
         .style('font-weight', '300px')
         .style('font-size', '20px') 
         .text("today"); // "today" 
@@ -142,15 +165,15 @@ function overviewPie() {
         // dollar month amount
         dollarMoAmt_label = d3.select('#power')
         .append('text')
-        .attr({'x': 213, 'y': 380, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
+        .attr({'x': 253, 'y': 380, 'text-anchor': 'end', 'fill' : '#FFFFFF'})
         .style('font-weight', 'normal')
         .style('font-size', '40px') 
-        .text("$21");
+        .text("$56");
         
         // month text
         month_label = d3.select('#power')
         .append('text')
-        .attr({'x': 300, 'y': 380, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
+        .attr({'x': 290, 'y': 380, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
         .style('font-weight', '300px')
         .style('font-size', '20px') 
         .text("month"); // "month"
@@ -192,7 +215,7 @@ function overviewPie() {
         // TODO: Use averages
 
         // Higher than average
-        if (kwamt_raw > 1500) {
+        if (kwamt_raw >= this.power_avg_usage) {
             avgTriangle_handle.attr({'points' : [252,110, 238,130, 266,130]});
             avgTriangle_handle.style('fill', '#FF8000')
             kwtop_handle.attr({'fill': '#FF8000'})
