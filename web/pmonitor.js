@@ -71,7 +71,8 @@ function overviewPie() {
             try {
                 var xmlHttp = null;
                 xmlHttp = new XMLHttpRequest();
-                xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + "/db/power_now/series?u=root&p=root&q=select%20*%20from%20power%20limit%201", false );
+                xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + 
+                    "/db/power_now/series?u=root&p=root&q=select%20*%20from%20power%20limit%201", false );
                 xmlHttp.send( null );
                 resp = xmlHttp.responseText
                 parse_dboutput(jQuery.parseJSON(resp))
@@ -109,61 +110,105 @@ function overviewPie() {
     	// kW top label
         kwtop_label = d3.select('#power')
         .append("text")
-        .attr({'x': 252, 'y': 170, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
-        .style('font-size', '36px')
+        .attr({'x': 252, 'y': 170, 'text-anchor': 'middle', 'fill' : '#FF8000'})
+        .style('font-size', '30px')
+        .style('font-weight', 'normal')
     	.text("watts");
         
         // kW amount
         kwamt_label = d3.select('#power')
         .append('text')
-    	.attr({'x': 257, 'y': 280, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
-    	.style('font-size', '102px') 
+    	.attr({'x': 257, 'y': 265, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
+    	.style('font-size', '100px') 
     	.style('font-weight', 'normal')
     	.text("0");
         
         // dollar amount
-        dollaramt_label = d3.select('#power')
+        dollarDayAmt_label = d3.select('#power')
         .append('text')
-    	.attr({'x': 250, 'y': 360, 'text-anchor': 'middle', 'fill' : '#FF8000'})
+    	.attr({'x': 213, 'y': 325, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
     	.style('font-weight', 'normal')
-    	.style('font-size', '42px') 
-    	.text("$");
+    	.style('font-size', '40px') 
+    	.text("");
         
         // today text
         today_label = d3.select('#power')
         .append('text')
-        .attr({'x': 250, 'y': 390, 'text-anchor': 'middle', 'fill' : '#FF8000'})
+        .attr({'x': 315, 'y': 325, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
+        .style('font-weight', '300px')
+        .style('font-size', '20px') 
+        .text("today"); // "today" 
+
+        // dollar month amount
+        dollarMoAmt_label = d3.select('#power')
+        .append('text')
+        .attr({'x': 213, 'y': 380, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
         .style('font-weight', 'normal')
-        .style('font-size', '24px') 
-        .text("today");
+        .style('font-size', '40px') 
+        .text("$21");
+        
+        // month text
+        month_label = d3.select('#power')
+        .append('text')
+        .attr({'x': 300, 'y': 380, 'text-anchor': 'middle', 'fill' : '#FFFFFF'})
+        .style('font-weight', '300px')
+        .style('font-size', '20px') 
+        .text("month"); // "month"
       	
+        avg_triangle = d3.select('#power')
+        .append('polygon')
+        .attr({'points' : []})
+        .style('fill', '#FF8000')
+
     	this.d3objHandles = {
     			"kwtop" : kwtop_label,
     			"kwamt" : kwamt_label,
-    			"dollaramt" : dollaramt_label,
+    			"dollarDayAmt" : dollarDayAmt_label,
+                "dollarMoAmt" : dollarMoAmt_label,
+                "avgTriangle" : avg_triangle
     			}
     }
     
     function updateLabels(data) {
-    	kwamt = data[1]['value']
-    	dollaramt = data[2]['value']
+    	kwamt_raw = data[1]['value']
+        kwamt_display = kwamt_raw
+    	dollarDayAmt = data[2]['value']
 
     	kwtop_handle = this.d3objHandles["kwtop"];
     	kwamt_handle = this.d3objHandles["kwamt"];
-    	dollaramt_handle = this.d3objHandles["dollaramt"]
+    	dollarDayAmt_handle = this.d3objHandles["dollarDayAmt"]
+        avgTriangle_handle = this.d3objHandles["avgTriangle"]
 		
-    	if (kwamt >= 1000) {
+    	if (kwamt_raw >= 1000) {
     		kwtop_handle.text("kilowatts");
-    		kwamt = (kwamt/1000).toPrecision(3);
-    	} else if (kwamt >= 10000) {
+    		kwamt_display = (kwamt_raw/1000).toPrecision(3);
+    	} else if (kwamt_raw >= 10000) {
     		kwtop_handle.text("kilowatts");
-    		kwamt = (kwamt/1000).toPrecision(4);
+    		kwamt_display = (kwamt_raw/1000).toPrecision(4);
     	} else {
     		kwtop_handle.text("watts");
     	}
+
+        // TODO: Use averages
+
+        // Higher than average
+        if (kwamt_raw > 1500) {
+            avgTriangle_handle.attr({'points' : [252,110, 238,130, 266,130]});
+            avgTriangle_handle.style('fill', '#FF8000')
+            kwtop_handle.attr({'fill': '#FF8000'})
+            powermeter.pie.color(['#222222', '#FF8000'])
+
+        // Lower than average
+        } else {
+            avgTriangle_handle.attr({'points' : [252,130, 238,110, 266,110]});
+            avgTriangle_handle.style('fill', '#6DD900')
+            kwtop_handle.attr({'fill': '#6DD900'})
+            powermeter.pie.color(['#222222', '#6DD900'])
+        }
     	
-    	kwamt_handle.text(kwamt);
-        dollaramt_handle.text('$' + dollaramt);
+    	kwamt_handle.text(kwamt_display);
+        dollarDayAmt_handle.text('$' + dollarDayAmt);
+        // dollarMoAmt_handle.text('$' + dollarMoAmt)
     }
 }
 
