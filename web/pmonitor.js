@@ -288,7 +288,6 @@ function overviewPie() {
     	}
 
         // Center the month labels and month amounts
-        console.log(this.monthly_cost)
         if (this.monthly_cost >= 10) {
             dollarMoAmt_handle.attr({'x': 284})
             monthLabel_handle.attr({'x': 320})
