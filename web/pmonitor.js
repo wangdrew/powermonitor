@@ -40,7 +40,7 @@ function overviewPie() {
 	// 	.startAngle(function(d) { return d.startAngle/2 - (3*Math.PI)/4; })
 	// 	.endAngle(function(d) { return d.endAngle/2 - (Math.PI/4) ;})
 	  	
-	var updateInterval = 2000; 
+	var updateInterval = 4000; 
 	this.initData = [ {'label': 'nonusage', 'value' : pmeas_chartmax} ,
 	                {'label' : 'usage', 'value' : 0} , 
 	                {'label' : 'daily_cost', 'value' : 0.00} ];
@@ -186,14 +186,14 @@ function overviewPie() {
         // Updates circle meter
         d3.select('#power')
         	.datum(data.slice(0,2)) 
-        	.transition().duration(2000)
+        	.transition().duration(1000)
         	.call(powermeter);
     }
     
     function initializeChart() {
         d3.select('#power')
 	    	.datum(this.initData.slice(0,2))
-	    	.transition().duration(2000)
+	    	.transition().duration(1000)
 	    	.call(powermeter);
         
         initLabels();
