@@ -1,5 +1,5 @@
 // Influx DB
-influxdb_host = '0.0.0.0'
+influxdb_host = 'wangdrew.net'
 influxdb_port = '8086'
 
 //Query parameters
@@ -16,6 +16,8 @@ debug_power_usage = 1500
 //init vars
 month_prev_query = -1
 month_begin_cost = 0.0
+query_limit = 3
+query_count = 3
 
 function overviewPie() {
 	
@@ -40,7 +42,7 @@ function overviewPie() {
 	// 	.startAngle(function(d) { return d.startAngle/2 - (3*Math.PI)/4; })
 	// 	.endAngle(function(d) { return d.endAngle/2 - (Math.PI/4) ;})
 	  	
-	var updateInterval = 4000; 
+	var updateInterval = 6000; 
 	this.initData = [ {'label': 'nonusage', 'value' : pmeas_chartmax} ,
 	                {'label' : 'usage', 'value' : 0} , 
 	                {'label' : 'daily_cost', 'value' : 0.00} ];
@@ -161,11 +163,13 @@ function overviewPie() {
                 resp = xmlHttp.responseText
                 parse_dboutput(jQuery.parseJSON(resp))
 
-                 // Get 24h average for power
-                query_power_average()
-
-                // Get the monthly cost
-                query_monthly_cost()
+                // Limit these queries to speed up client performance
+                if (query_count >= query_limit) {
+                    console.log("query for data")
+                    query_power_average()   // Get 24h average for power
+                    query_monthly_cost()    // Get the monthly cost
+                    query_count = 0;
+                } else { query_count++; }
 
 
             }
