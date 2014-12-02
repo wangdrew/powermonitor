@@ -1,5 +1,5 @@
 // Influx DB
-influxdb_host = 'wangdrew.net'
+influxdb_host = '0.0.0.0'
 influxdb_port = '8086'
 
 //Query parameters
