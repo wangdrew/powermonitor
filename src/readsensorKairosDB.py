@@ -3,6 +3,7 @@ import serial
 import requests
 from influxdb import client as influxdb
 import copy
+import json
 
 '''
 Configuration params
@@ -20,9 +21,8 @@ kairosMetric = {
     "name": "",
     "timestamp": "",
     "value" : "",
-    "tags" {},
+    "tags" : {"channel":"0"},
     "type" : "double"
-    }
 }
 
 def writeToDB(dataToWrite):
@@ -31,11 +31,11 @@ def writeToDB(dataToWrite):
    for metric in dataToWrite:
         metricBody = copy.deepcopy(kairosMetric)
         metricBody["name"] = metric
-        metricBody["timestamp"] = int(time.time() * 1000)
+        metricBody["timestamp"] = long(time.time() * 1000)
         metricBody["value"] = dataToWrite[metric]
         metricsToDB.append(metricBody)
 
-    resp = requests.post(KAIROS_URL, data = metricsToDB)
+    resp = requests.post(KAIROS_URL, data = json.dumps(metricsToDB))
 
     if resp.status_code != 405: # kairosDB success response code
         print(resp.text)
