@@ -37,7 +37,7 @@ def writeToDB(dataToWrite):
 
     resp = requests.post(KAIROS_URL, data = json.dumps(metricsToDB))
 
-    if resp.status_code != 405: # kairosDB success response code
+    if resp.status_code != 204: # kairosDB success response code
         print(resp.text)
 
 def readVoltage(rawData):
@@ -157,8 +157,6 @@ def main():
             
             #print('voltage %s current %s, last ws %s, current ws %s, last sec %s, current sec %s, power %s, powerUsedKwh %s' % (str(voltage), str(current), str(lastWs), str(currentWs), str(lastSec), str(currentSec), str(power), str(powerUsedKwh)))
             writeToDB(dataToWrite)
-
-        time.sleep(1)
 
 if __name__ == '__main__':
     main()
