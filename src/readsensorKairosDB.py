@@ -1,9 +1,10 @@
 import time
 import serial
 import requests
-from influxdb import client as influxdb
 import copy
 import json
+import os
+import sys
 
 '''
 Configuration params
@@ -13,8 +14,8 @@ SERIAL_DEVICE = '/dev/ttyUSB0'
 COST_PER_KWHR = .10203
 WS_TO_KWHR_CONV_FACTOR = 3600*1000
 
-KAIROS_IP = ""
-KAIROS_PORT = 8080
+KAIROS_IP = os.environ['KAIROS_IP']
+KAIROS_PORT = os.environ['KAIROS_PORT']
 KAIROS_URL = "http://" + str(KAIROS_IP) + ":" + str(KAIROS_PORT) + "/api/v1/datapoints"
 
 kairosMetric = {
@@ -26,9 +27,9 @@ kairosMetric = {
 }
 
 def writeToDB(dataToWrite):
-   metricsToDB = []
+    metricsToDB = []
 
-   for metric in dataToWrite:
+    for metric in dataToWrite:
         metricBody = copy.deepcopy(kairosMetric)
         metricBody["name"] = metric
         metricBody["timestamp"] = long(time.time() * 1000)
@@ -96,6 +97,12 @@ def grabRawData(comm):
         return components[startIdx:endIdx+1]
 
 def main():
+
+    # Make sure env vars are set
+    if !KAIROS_IP or !KAIROS_PORT:
+        print 'KAIROS_IP and KAIROS_PORT env vars not set!'
+        sys.exit(0)
+
     # Serial object
     comm = None
 
@@ -127,9 +134,10 @@ def main():
     Main Loop
     '''
     while True:
-        rawData = grabRawData(comm)
-        if rawData:
 
+        rawData = grabRawData(comm)
+
+        if rawData:
             voltage = readVoltage(rawData)
             current = readCurrent(rawData)
             lastWs = currentWs
