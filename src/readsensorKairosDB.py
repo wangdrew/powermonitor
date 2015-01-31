@@ -5,6 +5,7 @@ import copy
 import json
 import os
 import sys
+import argparse
 
 '''
 Configuration params
@@ -14,9 +15,12 @@ SERIAL_DEVICE = '/dev/ttyUSB0'
 COST_PER_KWHR = .10203
 WS_TO_KWHR_CONV_FACTOR = 3600*1000
 
-KAIROS_IP = os.environ['KAIROS_IP']
-KAIROS_PORT = os.environ['KAIROS_PORT']
-KAIROS_URL = "http://" + str(KAIROS_IP) + ":" + str(KAIROS_PORT) + "/api/v1/datapoints"
+parser = argparse.ArgumentParser()
+parser.add_argument('-i', '--ip', type=str, default="0.0.0.0", help='Kairos DB hostname or IP')
+parser.add_argument('-p', '--port', type=int, default=8080, help='Kairos DB port')
+args = parser.parse_args()
+
+KairosUrl = "http://" + str(args.ip) + ":" + str(args.port) + "/api/v1/datapoints"
 
 kairosMetric = {
     "name": "",
@@ -36,8 +40,8 @@ def writeToDB(dataToWrite):
         metricBody["value"] = dataToWrite[metric]
         metricsToDB.append(metricBody)
 
-    resp = requests.post(KAIROS_URL, data = json.dumps(metricsToDB))
-
+    resp = requests.post(KairosUrl, data = json.dumps(metricsToDB))
+    print resp
     if resp.status_code != 204: # kairosDB success response code
         print(resp.text)
 
@@ -97,11 +101,6 @@ def grabRawData(comm):
         return components[startIdx:endIdx+1]
 
 def main():
-
-    # Make sure env vars are set
-    if !KAIROS_IP or !KAIROS_PORT:
-        print 'KAIROS_IP and KAIROS_PORT env vars not set!'
-        sys.exit(0)
 
     # Serial object
     comm = None
@@ -163,7 +162,7 @@ def main():
                           'dailyCost' : dailyCost, 
                           'cumCost' : cumulative_cost}  
             
-            #print('voltage %s current %s, last ws %s, current ws %s, last sec %s, current sec %s, power %s, powerUsedKwh %s' % (str(voltage), str(current), str(lastWs), str(currentWs), str(lastSec), str(currentSec), str(power), str(powerUsedKwh)))
+            # print('voltage %s current %s, last ws %s, current ws %s, last sec %s, current sec %s, power %s, powerUsedKwh %s' % (str(voltage), str(current), str(lastWs), str(currentWs), str(lastSec), str(currentSec), str(power), str(powerUsedKwh)))
             writeToDB(dataToWrite)
 
 if __name__ == '__main__':
