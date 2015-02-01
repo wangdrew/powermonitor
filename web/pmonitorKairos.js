@@ -12,7 +12,7 @@ debug_power_usage = 1500
 
 // Query limiters 
 // How many times the short-term queries occur before the long-term queries occur
-queryLimit = 60
+queryLimit = 1
 queryCount = queryLimit
 
 //How far back in millis should we look from current time to find a metric?
@@ -131,16 +131,16 @@ function getCurrentMillis() {
 }
 
 function getDayBeginningMillis() {
-    console.log("getting day millis")
     var d = new Date()
-    var currentMillis = d.getTime()
-
-    var beginningUtc = currentMillis - (currentMillis %  millisPerDay)
-    return beginningUtc += ((d.getTimezoneOffset() * 60 * 1000) - millisPerDay)
+    var dBegin = new Date(
+        d.getFullYear(),
+        d.getMonth(),
+        d.getDate(),
+        0, 0, 0, 0)
+    return dBegin.getTime()
 }
 
 function getMonthBeginningMillis() {
-    console.log("getting month millis")
     var d = new Date()
     var dBegin = new Date(
         d.getFullYear(), 
@@ -254,14 +254,7 @@ function overviewPie() {
             try {
 
                 this.instantPower = queryInstantPower()
-                // console.log(this.instantPower)
-                // console.log(this.costNow)
-                // console.log(this.avgPower)
-                // console.log(this.costDayBeginning)
-                // console.log(this.costDayMonth)
-                // console.log(this.costSinceToday)
-                // console.log(this.costSinceThisMonth)
-
+                
                 // Limit these queries to speed up client performance
                 if (queryCount >= queryLimit) {
                     this.costNow = queryCostNow()
