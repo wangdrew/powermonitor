@@ -2,9 +2,6 @@
 kairosHost = 'wangdrew.net'
 kairosPort = '8080'
 
-//Query parameters
-power_avg_window = "24h"
-
 //Display parameters
 pmeas_chartmax = 12000 // Max watts
 
@@ -13,11 +10,10 @@ debug_daily_dollar_amt = 3.42
 debug_month_dollar_amt = 13.23
 debug_power_usage = 1500
 
-//init vars
-month_prev_query = -1
-month_begin_cost = 0.0
-query_limit = 3
-query_count = 3
+// Query limiters 
+// How many times the short-term queries occur before the long-term queries occur
+queryLimit = 60
+queryCount = queryLimit
 
 //How far back in millis should we look from current time to find a metric?
 queryAcceptanceWindow = 5000
@@ -28,6 +24,14 @@ millisPerDay = 86400000
 // KairosDB query endpoint
 kairosEndpoint = "http://" + kairosHost + ":" + kairosPort + "/api/v1/datapoints/query"
 
+// Mutable data obtained from KairosDB
+this.instantPower = 0.0
+this.costNow = 0.0
+this.avgPower = 0.0
+this.costDayBeginning = 0.0
+this.costDayMonth = 0.0
+this.costSinceToday = 0.0
+this.costSinceThisMonth = 0.0
 
 /* Query JSONs for KairosDB */
 function getQueryInstantPower() {
@@ -35,7 +39,7 @@ function getQueryInstantPower() {
     var timeNow = getCurrentMillis()
 
     return {
-        "start_absolute": timeNow - acceptanceWindow,
+        "start_absolute": timeNow - queryAcceptanceWindow,
         "end_absolute": timeNow,
         "metrics" : [{
             "name": "powerW",
@@ -68,6 +72,22 @@ function getQueryAvg24Power() {
             }
         ]
     }    
+}
+
+function getQueryCostNow() {
+
+    var timeNow = getCurrentMillis()
+
+    return {
+        "start_absolute": timeNow - queryAcceptanceWindow,
+        "end_absolute": timeNow,
+        "metrics" : [{
+            "name": "cumCost",
+            "tags" : {"channel": ["0"]},
+            "limit": 1,
+          "order": "desc" // most recent
+        }]
+    }
 }
 
 function getQueryCostAtDayBeginning() {
@@ -111,14 +131,16 @@ function getCurrentMillis() {
 }
 
 function getDayBeginningMillis() {
+    console.log("getting day millis")
     var d = new Date()
     var currentMillis = d.getTime()
 
     var beginningUtc = currentMillis - (currentMillis %  millisPerDay)
-    return beginningUtc += d.getTimezoneOffset() * 60 * 1000
+    return beginningUtc += ((d.getTimezoneOffset() * 60 * 1000) - millisPerDay)
 }
 
 function getMonthBeginningMillis() {
+    console.log("getting month millis")
     var d = new Date()
     var dBegin = new Date(
         d.getFullYear(), 
@@ -130,9 +152,9 @@ function getMonthBeginningMillis() {
 /* Kairos DB query functions */
 function queryKairosDb(queryJson) {
     var xmlhttp = new XMLHttpRequest();
-    xmlhttp.open("POST", kairosEndpoint);
+    xmlhttp.open("POST", kairosEndpoint, false);
     xmlhttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-    xmlhttp.send(JSON.stringify(getQueryInstantPower()));
+    xmlhttp.send(JSON.stringify(queryJson));
     var resp = xmlhttp.responseText;    // This needs to wait
     return jQuery.parseJSON(resp);
 }
@@ -144,15 +166,36 @@ function queryInstantPower() {
 }
 
 function queryAvg24Power() {
+    var resp = queryKairosDb(getQueryAvg24Power())
+    return parseKairosOutput(resp)
+}
 
+function queryCostNow() {
+    var resp = queryKairosDb(getQueryCostNow())
+    return parseKairosOutput(resp)
+}
+
+function queryCostAtDayBeginning() {
+    var resp = queryKairosDb(getQueryCostAtDayBeginning())
+    return parseKairosOutput(resp)
+}
+
+function queryCostAtMonthBeginning() {
+    var resp = queryKairosDb(getQueryCostAtMonthBeginning())
+    return parseKairosOutput(resp) 
 }
 
 function parseKairosOutput(resp) {
     try {
         return resp['queries'][0]['results'][0]['values'][0][1]
-    } catch {
+    } 
+    catch(err) {
         return "--"
     }
+}
+
+function formatCost(cost) {
+    return Math.round(cost * 100) / 100
 }
 
 
@@ -181,7 +224,7 @@ function overviewPie() {
 	// 	.startAngle(function(d) { return d.startAngle/2 - (3*Math.PI)/4; })
 	// 	.endAngle(function(d) { return d.endAngle/2 - (Math.PI/4) ;})
 	  	
-	var updateInterval = 6000; 
+	var updateInterval = 2000; 
 	this.initData = [ {'label': 'nonusage', 'value' : pmeas_chartmax} ,
 	                {'label' : 'usage', 'value' : 0} , 
 	                {'label' : 'daily_cost', 'value' : 0.00} ];
@@ -190,97 +233,6 @@ function overviewPie() {
 	nv.addGraph(powermeter);
 	setInterval( function() { update(); }, updateInterval);
     return;
-
-    function parse_dboutput(data) {
-        keys = data[0]['columns']
-        power_usage_idx = keys.indexOf("power")
-        daily_cost_idx = keys.indexOf("daily_cost")
-        this.power_usage = data[0]['points'][0][power_usage_idx]
-        daily_cost_cents = Math.round(data[0]['points'][0][daily_cost_idx] * 100)
-        this.daily_cost = daily_cost_cents / 100
-    }
-
-    function parse_dboutput_power_avg(data) {
-         keys = data[0]['columns']
-         power_avg_idx = keys.indexOf("mean")
-         this.power_avg_usage = data[0]['points'][0][power_avg_idx]
-    }
-
-    function query_beginning_of_month_cost() {
-        curr_date = new Date()
-        month_now = curr_date.getMonth()+1
-        if (month_now != month_prev_query) {
-            // find cost @ beginning of month
-            year_now = curr_date.getYear() + 1900
-
-            xmlHttp = new XMLHttpRequest();
-            xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + 
-            "/db/powerdb/series?u=root&p=root&q=select%20cum_cost%20from%20power%20where" + 
-            "%20time%20>%20'" + year_now + "-" + month_now + "-01%2008:01:00.000'%20and%20" + 
-            "time%20<%20'" + year_now + "-" + month_now + "-01%2008:02:00.000'%20limit%201", false );
-            xmlHttp.send( null );
-            resp = xmlHttp.responseText
-            resp = jQuery.parseJSON(resp)
-
-            // if undef, find the earliest cum_cost value in DB
-            if (resp.length == 0) {
-                xmlHttp = new XMLHttpRequest();
-                xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + 
-                "/db/powerdb/series?u=root&p=root&q=select%20last(cum_cost)%20from%20power", false );
-                xmlHttp.send( null );
-                resp = xmlHttp.responseText
-                resp = jQuery.parseJSON(resp)
-                data_idx = resp[0]['columns'].indexOf("last")
-                this.month_begin_cost = resp[0]['points'][0][data_idx]
-            } else {
-                data_idx = resp[0]['columns'].indexOf("cum_cost")
-                this.month_begin_cost = resp[0]['points'][0][data_idx]
-            }
-        }
-        month_prev_query = month_now
-        return this.month_begin_cost
-    }
-
-    function query_monthly_cost() {
-        this.monthly_cost = query_current_cum_cost() - query_beginning_of_month_cost()
-        this.monthly_cost = Math.round(this.monthly_cost * 100) / 100
-    }
-
-    function query_power_average() {
-        xmlHttp = new XMLHttpRequest();
-        xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + 
-            "/db/powerdb/series?u=root&p=root&q=SELECT%20MEAN(power)%20FROM%20power%20group" +
-            "%20by%20time(" + power_avg_window + ")%20where%20time%20%3E%20now()%20-%20" + 
-            power_avg_window + "%20limit%201", false );
-        xmlHttp.send( null );
-        resp = xmlHttp.responseText
-        parse_dboutput_power_avg(jQuery.parseJSON(resp))
-    }
-
-    function query_current_cum_cost() {
-        xmlHttp = new XMLHttpRequest();
-        xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + 
-                "/db/powerdb/series?u=root&p=root&q=select%20first(cum_cost)%20from%20power", false );
-        xmlHttp.send(null);
-        resp = xmlHttp.responseText
-        resp = jQuery.parseJSON(resp)
-        data_idx = resp[0]['columns'].indexOf("first")
-        this.current_cum_cost = resp[0]['points'][0][data_idx]
-        return this.current_cum_cost
-    }
-
-    function query_kairosdb(queryJson) {
-
-        var xmlHttp = new XMLHttpRequest();
-        xmlhttp.open("POST", "/json-handler");
-        xmlhttp.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-        xmlhttp.send(JSON.stringify(query_json))
-        xmlHttp.open( "POST", "http://" + kairos_host + ":" + kairos_port + "api/v1/datapoints/query", false );
-        xmlHttp.send( null );
-        resp = xmlHttp.responseText
-        console.log(resp)
-
-    }
 
     function update() {
     	
@@ -298,31 +250,30 @@ function overviewPie() {
 		}
 
 		else {
-            dollar_amt = 0.0
-            power_usage = 0
-            power_data_array = null
 
             try {
 
-                query_kairosdb()
-                var xmlHttp = null;
-                xmlHttp = new XMLHttpRequest();
-                
-                // Get instantaneous datapoints - power, daily cost
-                xmlHttp.open( "GET", "http://" + influxdb_host + ":" + influxdb_port + 
-                    "/db/power_now/series?u=root&p=root&q=select%20*%20from%20power%20limit%201", false );
-
-                xmlHttp.send( null );
-                resp = xmlHttp.responseText
-                parse_dboutput(jQuery.parseJSON(resp))
+                this.instantPower = queryInstantPower()
+                // console.log(this.instantPower)
+                // console.log(this.costNow)
+                // console.log(this.avgPower)
+                // console.log(this.costDayBeginning)
+                // console.log(this.costDayMonth)
+                // console.log(this.costSinceToday)
+                // console.log(this.costSinceThisMonth)
 
                 // Limit these queries to speed up client performance
-                if (query_count >= query_limit) {
-                    console.log("query for data")
-                    query_power_average()   // Get 24h average for power
-                    query_monthly_cost()    // Get the monthly cost
-                    query_count = 0;
-                } else { query_count++; }
+                if (queryCount >= queryLimit) {
+                    this.costNow = queryCostNow()
+                    this.avgPower = queryAvg24Power()
+                    this.costDayBeginning = queryCostAtDayBeginning()
+                    this.costDayMonth = queryCostAtMonthBeginning()
+                    this.costSinceToday = formatCost(this.costNow - this.costDayBeginning)
+                    this.costSinceThisMonth = formatCost(this.costNow - this.costDayMonth)
+                    queryCount = 0;
+                } else { 
+                    queryCount++; 
+                }
 
 
             }
@@ -331,10 +282,10 @@ function overviewPie() {
                 console.log('Error getting influx data' + err);
             }
 
-			data = [ {'label': 'nonusage', 'value' : pmeas_chartmax - this.power_usage},
-				{'label' : 'usage', 'value' : this.power_usage},
-	            {'label' : 'daily_cost', 'value' : this.daily_cost},
-                {'label' : 'monthly_cost', 'value' : this.monthly_cost}];
+			data = [ {'label': 'nonusage', 'value' : pmeas_chartmax - this.instantPower},
+				{'label' : 'usage', 'value' : this.instantPower},
+	            {'label' : 'daily_cost', 'value' : this.costSinceToday},
+                {'label' : 'monthly_cost', 'value' : this.costSinceThisMonth}];
 		}
 
 		// Updates text labels    	
@@ -445,7 +396,7 @@ function overviewPie() {
     	}
 
         // Center the month labels and month amounts
-        if (this.monthly_cost >= 10) {
+        if (this.costSinceThisMonth >= 10) {
             dollarMoAmt_handle.attr({'x': 284})
             monthLabel_handle.attr({'x': 320})
         } else {
@@ -454,7 +405,7 @@ function overviewPie() {
         }
 
         // Higher than average
-        if (kwamt_raw >= this.power_avg_usage) {
+        if (kwamt_raw >= this.avgPower) {
             avgTriangle_handle.attr({'points' : [252,110, 238,130, 266,130]});
             avgTriangle_handle.style('fill', '#FF8000')
             kwtop_handle.attr({'fill': '#FF8000'})
