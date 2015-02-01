@@ -12,7 +12,7 @@ debug_power_usage = 1500
 
 // Query limiters 
 // How many times the short-term queries occur before the long-term queries occur
-queryLimit = 1
+queryLimit = 60
 queryCount = queryLimit
 
 //How far back in millis should we look from current time to find a metric?
@@ -254,7 +254,7 @@ function overviewPie() {
             try {
 
                 this.instantPower = queryInstantPower()
-                
+
                 // Limit these queries to speed up client performance
                 if (queryCount >= queryLimit) {
                     this.costNow = queryCostNow()
