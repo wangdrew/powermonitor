@@ -41,9 +41,8 @@ def writeToDB(dataToWrite):
         metricsToDB.append(metricBody)
 
     resp = requests.post(KairosUrl, data = json.dumps(metricsToDB))
-    print resp
     if resp.status_code != 204: # kairosDB success response code
-        print(resp.text)
+        print resp.text
 
 def readVoltage(rawData):
     (b0, b1) = rawData[3:5]
@@ -163,7 +162,11 @@ def main():
                           'cumCost' : cumulative_cost}  
             
             # print('voltage %s current %s, last ws %s, current ws %s, last sec %s, current sec %s, power %s, powerUsedKwh %s' % (str(voltage), str(current), str(lastWs), str(currentWs), str(lastSec), str(currentSec), str(power), str(powerUsedKwh)))
-            writeToDB(dataToWrite)
+            try:
+                writeToDB(dataToWrite)
+            except:
+                pass
 
 if __name__ == '__main__':
     main()
+
