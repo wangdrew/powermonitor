@@ -1,146 +1,99 @@
 import time
 import serial
 import requests
-from influxdb import client as influxdb
 import copy
+import json
+import os
+import sys
+import argparse
+from DataStore import PowerMetric, KairosDataStore, MqttDataStore
 
 '''
 Configuration params
 '''
 SERIAL_DEVICE = '/dev/ttyUSB0'
-INFLUX_SERVER_ADDR = '192.168.1.102'
-INFLUX_SERVER_PORT = 8086
-INFLUX_USERNAME = 'root'
-INFLUX_PASSWORD = 'root'
-INFLUX_DBNAME = 'power'
-INFLUX_DBNAME_ONEPOINT = 'power_now'
+
 COST_PER_KWHR = .10203
 WS_TO_KWHR_CONV_FACTOR = 3600*1000
-def write_to_db(db, dbtop, data_point):
-    data_to_send = [
-                    {
-                        "name": 'power',
-                        "time": time.time(),
-                        "columns": [
-                            'voltage',
-                            'current',
-                            'power',
-                            'power_used',
-                            'daily_cost',
-                            'cum_cost'
-                        ],
-                        "points": [
-                            [
-                                data_point['voltage'],
-                                data_point['current'],
-                                data_point['power'],
-                                data_point['power_used'],
-                                data_point['daily_cost'],
-                                data_point['cum_cost']
-                            ]
-                        ]
-                        }
-                    ]
-    one_data_to_send = [
-                        {
-                            "name" : 'power',
-                            "columns": [
-                                'time',
-                                'sequence_number',
-                                'power',
-                                'daily_cost'
-                            ],
-                            "points" : [
-                                [
-                                    1411965459,
-                                    1,
-                                    data_point['power'],
-                                    data_point['daily_cost']
-                                ]
-                            ]
-                            }
-                        ]
-    print one_data_to_send
-    
-    try:
-        db.write_points(data_to_send)
-        dbtop.write_points(one_data_to_send)
-    except requests.exceptions.RequestException as e:
-        print('Influx connection error: ' + str(e))
-    except Exception as e:
-        print('Influx client error: ' + str(e))
 
-    print('Sent: %s ' % str(data_to_send))
+parser = argparse.ArgumentParser()
+parser.add_argument('-i', '--ip', type=str, default="0.0.0.0", help='Kairos DB hostname or IP')
+parser.add_argument('-p', '--port', type=int, default=8080, help='Kairos DB port')
+args = parser.parse_args()
 
-def read_voltage(raw_data):
-    (b0, b1) = raw_data[3:5]
-    bin_value = (b0 << 8) | b1
-    return float(bin_value) / 10
+
+def readVoltage(rawData):
+    (b0, b1) = rawData[3:5]
+    binValue = (b0 << 8) | b1
+    return float(binValue) / 10
 
 '''
 Reads current only on CH1 right now
 '''
-def read_current(raw_data):
-    (b0, b1) = raw_data[33:35]
-    bin_value = (b0 << 8) | b1
-    return float(bin_value) / 1000   # Amps
+def readCurrent(rawData):
+    (b0, b1) = rawData[33:35]
+    binValue = (b0 << 8) | b1
+    return float(binValue) / 1000   # Amps
 
 '''
 Reads wattsec only on CH1 right now
 '''
-def read_wattsec(raw_data):
-    (b0,b1,b2,b3,b4) = raw_data[5:10]
-    bin_value = b4<<32|b3<<24|b2<<16|b1<<8|b0
-    return int(bin_value)       # watts seconds
+def readWattSec(rawData):
+    (b0,b1,b2,b3,b4) = rawData[5:10]
+    binValue = b4<<32|b3<<24|b2<<16|b1<<8|b0
+    return int(binValue)       # watts seconds
 
-def read_sec(raw_data):
-    (b0,b1,b2) = raw_data[37:40]
-    bin_value = b2<<16|b1<<8|b0
-    return int(bin_value)
+def readSec(rawData):
+    (b0,b1,b2) = rawData[37:40]
+    binValue = b2<<16|b1<<8|b0
+    return int(binValue)
 
-def convert_to_power(last_ws, current_ws, last_sec, current_sec):
-    return float((current_ws - last_ws) / (current_sec - last_sec))
+def convertToPowerW(lastWs, currentWs, lastSec, currentSec):
+    return float((currentWs - lastWs) / (currentSec - lastSec))
 
-def grab_raw_data(comm):
+def grabRawData(comm):
     blob = comm.read(200)
     components = [ord(b) for b in blob]
 
     # Look for the first occurrence of the start byte sequence: 254, 255, 3 and the end of the sequence
     # which comes right before the next start sequence
-    start_idx = -1
-    end_idx = -1
+    startIdx = -1
+    endIdx = -1
     length = len(components)
     for n, c in enumerate(components):
         if c == 254:
             if n+1 < length and components[n+1] == 255:
                 if n+2 < length and components[n+2] == 3:
-                    if start_idx == -1:
-                        start_idx = n
-                    elif end_idx == -1:
-                        end_idx = n-1
+                    if startIdx == -1:
+                        startIdx = n
+                    elif endIdx == -1:
+                        endIdx = n-1
                     else:
                         break
-    if start_idx == -1 or end_idx == -1:
+    if startIdx == -1 or endIdx == -1:
         print 'Did not find the data sequence'
         return []
 
     else:
-        return components[start_idx:end_idx+1]
+        return components[startIdx:endIdx+1]
 
 def main():
+
     # Serial object
     comm = None
 
     # Used to calculate power
-    last_ws = 0
-    current_ws = 0
-    last_sec = 0
-    current_sec = 0
+    lastWs = 0
+    currentWs = 0
+    lastSec = 0
+    currentSec = 0
 
     # Used to calculate daily cost 
-    last_meas_timestamp = time.localtime()
-    kwhr_today_start = 0.0
+    lastMeasTimestamp = time.localtime()
+    kwhrStartToday = 0.0
 
+
+    datastores = [KairosDataStore(args.ip, args.port)]
     '''
     Open the serial port
     '''
@@ -156,62 +109,39 @@ def main():
             break
 
     '''
-    InfluxDB client
-    '''
-    try:
-        db = influxdb.InfluxDBClient(INFLUX_SERVER_ADDR, INFLUX_SERVER_PORT, \
-                                     INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DBNAME)
-        dbtop = influxdb.InfluxDBClient(INFLUX_SERVER_ADDR, INFLUX_SERVER_PORT, \
-                                     INFLUX_USERNAME, INFLUX_PASSWORD, INFLUX_DBNAME_ONEPOINT)
-    except Exception as e:
-        print('Exception in DB connection: %s' % str(e))
-
-    try:
-        db_list = db.get_database_list()
-        if not db_list:
-            db.create_database(INFLUX_DBNAME)
-        db_list = dbtop.get_database_list()
-        if not db_list:
-            db.create_database(INFLUX_DBNAME_ONEPOINT)
-    except Exception as e:
-        print('Exception in DB init: %s' % str(e))
-
-    '''
     Main Loop
     '''
     while True:
-        raw_data = grab_raw_data(comm)
-        if raw_data:
 
-            voltage = read_voltage(raw_data)
-            current = read_current(raw_data)
-            last_ws = current_ws
-            last_sec = current_sec
-            current_ws = read_wattsec(raw_data)
-            current_sec = read_sec(raw_data)
-            power = convert_to_power(last_ws, current_ws, last_sec, current_sec)
-            power_used = float(current_ws)/(WS_TO_KWHR_CONV_FACTOR)
+        rawData = grabRawData(comm)
+
+        if rawData:
+            voltage = readVoltage(rawData)
+            current = readCurrent(rawData)
+            lastWs = currentWs
+            lastSec = currentSec
+            currentWs = readWattSec(rawData)
+            currentSec = readSec(rawData)
+            power = convertToPowerW(lastWs, currentWs, lastSec, currentSec)
+            powerUsedKwh = float(currentWs)/(WS_TO_KWHR_CONV_FACTOR)
 
             # Reset daily power usage if after midnight
-            time_now = time.localtime()
-            if kwhr_today_start == 0.0 or time_now.tm_hour < last_meas_timestamp.tm_hour:
-                kwhr_today_start = power_used
-            last_meas_timestamp = time_now
+            timeNow = time.localtime()
+            if kwhrStartToday == 0.0 or timeNow.tm_hour < lastMeasTimestamp.tm_hour:
+                kwhrStartToday = powerUsedKwh
+            lastMeasTimestamp = timeNow
 
-            daily_cost = (power_used - kwhr_today_start) * COST_PER_KWHR
-            cumulative_cost = power_used * COST_PER_KWHR
+            dailyCost = (powerUsedKwh - kwhrStartToday) * COST_PER_KWHR
+            cumulative_cost = powerUsedKwh * COST_PER_KWHR
 
-            data_point = {'voltage': voltage,
-                          'current': current,
-                          'power': power,
-                          'power_used': power_used,
-                          'daily_cost' : daily_cost, 
-                          'cum_cost' : cumulative_cost}  
-            
-            #print('voltage %s current %s, last ws %s, current ws %s, last sec %s, current sec %s, power %s, power_used %s' % (str(voltage), str(current), str(last_ws), str(current_ws), str(last_sec), str(current_sec), str(power), str(power_used)))
-            write_to_db(db, dbtop, data_point)
+            m = PowerMetric(voltage, current, power, powerUsedKwh, dailyCost, cumulative_cost)
 
-        time.sleep(1)
+            try:
+                for d in datastores:
+                    d.write_to_store(m)
+            except:
+                pass
 
 if __name__ == '__main__':
     main()
+
