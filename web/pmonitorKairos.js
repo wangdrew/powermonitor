@@ -1,6 +1,4 @@
-// Influx DB
-kairosHost = 'wangdrew.net'
-kairosPort = '8080'
+var chart = null
 
 //Display parameters
 pmeas_chartmax = 12000 // Max watts
@@ -21,9 +19,6 @@ queryAcceptanceWindow = 5000
 // How many milliseconds in a 24 hour day
 millisPerDay = 86400000
 
-// KairosDB query endpoint
-kairosEndpoint = "http://" + kairosHost + ":" + kairosPort + "/api/v1/datapoints/query"
-
 // Mutable data obtained from KairosDB
 this.instantPower = 0.0
 this.costNow = 0.0
@@ -32,6 +27,72 @@ this.costDayBeginning = 0.0
 this.costDayMonth = 0.0
 this.costSinceToday = 0.0
 this.costSinceThisMonth = 0.0
+
+
+/* MQTT implementation */
+//Mqtt vars
+var mqtt;
+var reconnectTimeout = 2000;
+var mqtt_payload = null;
+
+// MQTT functions
+function MQTTconnect() {
+        mqtt = new Paho.MQTT.Client(
+                        mqtt_host,
+                        mqtt_port,
+                        "web_" + parseInt(Math.random() * 100,
+                        10));
+        var options = {
+            timeout: 3,
+            useSSL: useTLS,
+            cleanSession: cleansession,
+            onSuccess: onConnect,
+            onFailure: function (message) {
+                console.log("Connection failed: " + message.errorMessage + "Retrying")
+                setTimeout(MQTTconnect, reconnectTimeout);
+            }
+        };
+
+        mqtt.onConnectionLost = onConnectionLost;
+        mqtt.onMessageArrived = onMessageArrived;
+
+        if (username != null) {
+            options.userName = username;
+            options.password = password;
+        }
+        console.log("Host="+ mqtt_host + ", port=" + mqtt_port + " TLS = " + useTLS + " username=" + username + " password=" + password);
+        mqtt.connect(options);
+    }
+
+function onConnect() {
+    console.log('Connected to ' + mqtt_host + ':' + mqtt_port);
+    // Connection succeeded; subscribe to our topic
+    mqtt.subscribe(topic, {qos: 0});
+    // console.log("asd" + qos)
+    console.log('Subscribed to ' + topic);
+};
+
+function onConnectionLost(response) {
+    setTimeout(MQTTconnect, reconnectTimeout);
+    console.log("connection lost: " + response.errorMessage + ". Reconnecting");
+};
+
+function onMessageArrived(message) {
+    var topic = message.destinationName;
+    var payload = JSON.parse(message.payloadString);
+    mqtt_payload = payload
+};
+
+function queryInstantPower() {
+    return mqtt_payload["powerW"]
+}
+
+function queryDailyCost() {
+    return mqtt_payload["dailyCost"]
+}
+
+/* End MQTT implementation */
+
 
 /* Query JSONs for KairosDB */
 function getQueryInstantPower() {
@@ -160,10 +221,11 @@ function queryKairosDb(queryJson) {
 }
 
 
-function queryInstantPower() {
-    var resp = queryKairosDb(getQueryInstantPower())
-    return parseKairosOutput(resp)
-}
+// TODO: switch between kairos and mqtt websockets
+// function queryInstantPower() {
+//     var resp = queryKairosDb(getQueryInstantPower())
+//     return parseKairosOutput(resp)
+// }
 
 function queryAvg24Power() {
     var resp = queryKairosDb(getQueryAvg24Power())
@@ -224,7 +286,7 @@ function overviewPie() {
 	// 	.startAngle(function(d) { return d.startAngle/2 - (3*Math.PI)/4; })
 	// 	.endAngle(function(d) { return d.endAngle/2 - (Math.PI/4) ;})
 	  	
-	var updateInterval = 2000; 
+	var updateInterval = 1000; 
 	this.initData = [ {'label': 'nonusage', 'value' : pmeas_chartmax} ,
 	                {'label' : 'usage', 'value' : 0} , 
 	                {'label' : 'daily_cost', 'value' : 0.00} ];
@@ -254,25 +316,26 @@ function overviewPie() {
             try {
 
                 this.instantPower = queryInstantPower()
+                this.costSinceToday = formatCost(queryDailyCost())
 
                 // Limit these queries to speed up client performance
                 if (queryCount >= queryLimit) {
-                    this.costNow = queryCostNow()
-                    this.avgPower = queryAvg24Power()
-                    this.costDayBeginning = queryCostAtDayBeginning()
-                    this.costDayMonth = queryCostAtMonthBeginning()
-                    this.costSinceToday = formatCost(this.costNow - this.costDayBeginning)
-                    this.costSinceThisMonth = formatCost(this.costNow - this.costDayMonth)
+                    // this.costNow = queryCostNow()
+                    // this.avgPower = queryAvg24Power()
+                    // this.costDayBeginning = queryCostAtDayBeginning()
+                    // this.costDayMonth = queryCostAtMonthBeginning()
+                    // this.costSinceToday = formatCost(this.costNow - this.costDayBeginning)
+                    // this.costSinceThisMonth = formatCost(this.costNow - this.costDayMonth)
+                    this.avgPower = 2000
+                    this.costSinceThisMonth = 30.12
                     queryCount = 0;
                 } else { 
                     queryCount++; 
                 }
 
 
-            }
-
-            catch(err){
-                console.log('Error getting influx data' + err);
+            } catch(err){
+                console.log('Error getting data' + err);
             }
 
 			data = [ {'label': 'nonusage', 'value' : pmeas_chartmax - this.instantPower},
@@ -424,7 +487,9 @@ function overviewPie() {
 
 
 /* init stuff */
-overviewPie();
-
+$(document).ready(function() {
+    MQTTconnect();
+    chart = overviewPie();
+});
 
 
