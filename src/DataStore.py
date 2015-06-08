@@ -85,7 +85,7 @@ class PowerMetric():
             yield (key, d[key])
 
     def __repr__(self):
-        return self.as_dict()
+        return str(self.as_dict())
 
     def __str__(self):
-        return self.as_dict()
+        return str(self.as_dict())

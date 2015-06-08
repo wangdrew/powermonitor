@@ -52,7 +52,7 @@ def convertToPowerW(lastWs, currentWs, lastSec, currentSec):
     return float((currentWs - lastWs) / (currentSec - lastSec))
 
 def grabRawData(comm):
-    blob = comm.read(200)
+    blob = comm.read(150)
     components = [ord(b) for b in blob]
 
     # Look for the first occurrence of the start byte sequence: 254, 255, 3 and the end of the sequence
@@ -94,7 +94,7 @@ def main():
 
 
     # datastores = [KairosDataStore(args.ip, args.port)]
-    datastore = [MqttDataStore(args.ip, args.port, 'power')]
+    datastores = [MqttDataStore(args.ip, args.port, 'power')]
     '''
     Open the serial port
     '''
