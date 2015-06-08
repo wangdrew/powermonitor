@@ -1,0 +1,47 @@
+#http://goochgooch.co.uk/2014/08/01/building-mosquitto-1-4/
+
+sudo yum install cmake openssl-devel gcc-c++
+cd
+wget http://git.warmcat.com/cgi-bin/cgit/libwebsockets/snapshot/libwebsockets-1.3-chrome37-firefox30.tar.gz
+tar -xzvf libwebsockets-1.3-chrome37-firefox30.tar.gz
+cd libwebsockets-1.3-chrome37-firefox30/
+mkdir build
+cd build
+cmake .. -DOPENSSL_ROOT_DIR=/usr/bin/openssl
+make
+make install
+cd
+git clone https://git.eclipse.org/r/mosquitto/org.eclipse.mosquitto
+cd org.eclipse.mosquitto
+git checkout origin/1.4
+
+vi config.mk
+# edit: WITH_WEBSOCKETS:=yes
+
+sudo yum install libuuid-devel uuid-devel xsltproc docbook-xsl
+make
+
+# make fails with this error:
+# warning: failed to load external entity "/usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl"
+# compilation error: file manpage.xsl line 3 element import
+# xsl:import : unable to load /usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl
+# compilation error: file mosquitto.8.xml line 4 element refentry
+# xsltParseStylesheetProcess : document is not a stylesheet
+
+# FIX: replace: /usr/share/xml/docbook/stylesheet/docbook-xsl/manpages/docbook.xsl
+#      with: /usr/share/sgml/docbook/xsl-stylesheets-1.78.1/manpages/profile-docbook.xsl
+#
+#      source: https://bugs.launchpad.net/mosquitto/+bug/1269967l
+
+make test
+# make test fails b/c can't find websockets lib. Add following file
+
+echo '/usr/local/lib' > /etc/ld.so.conf.d/websockets-x86_64.conf
+make test
+
+make install
+cp /etc/mosquitto/mosquitto.conf.example /etc/mosquitto/mosquitto.conf
+
+# edit mosquitto.conf to add websockets
+#
+mosquitto -d -c /etc/mosquitto/mosquitto.conf
