@@ -8,6 +8,7 @@ import paho.mqtt.client as mqtt
 import paho.mqtt.publish as mqtt_publish
 from Queue import Queue
 import thread
+from PowerMetric import PowerMetric
 
 MqttBrokerHost = "wangdrew.net"     # env var
 MqttBrokerPort = 1883
@@ -29,9 +30,10 @@ class SensorServer:
         while True:
             if not self.mqttMessages.empty():
                 msg = self.mqttMessages.get(False)
-                print 'On queue %s - %s' % (msg.topicName, str(msg.value))
+                print 'On queue %s' % msg
 
                 # Give to exporters
+
 
 class MqttSubscriber:
     def __init__(self, sharedqueue):
@@ -39,11 +41,11 @@ class MqttSubscriber:
 
     def on_connect(self, client, userdata, flags, rc):
         print("Connected to MQTT broker "+str(rc))
-        client.subscribe("sensor/#")
+        client.subscribe("power")
 
     def on_message(self, client, userdata, msg):
         print(msg.topic+" "+str(msg.payload))
-        self.mqttMessages.put(SensorMessage(msg.topic, msg.payload))
+        self.mqttMessages.put(PowerMetric.from_json(msg.payload))
 
     def run(self):
         try:

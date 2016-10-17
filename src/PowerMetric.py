@@ -1,5 +1,6 @@
 __author__ = 'andrewwang'
 
+import json
 
 class PowerMetric():
     def __init__(self,
@@ -15,6 +16,20 @@ class PowerMetric():
         self.powerUsedKwh = powerUsedKwh
         self.dailyCost = dailyCost
         self.cumCost = cumCost
+
+
+    @staticmethod
+    def from_json(json_string):
+        map = json.loads(json_string)
+        try:
+            return PowerMetric(map['voltageV'], map['currentA'], map['powerW'],
+                               map['powerUsedKwh'], map['dailyCost'], map['cumCost'])
+        except Exception as e:
+            print "Error extracting deserializing PowerMetric from JSON. %s" % str(e)
+
+
+    def to_json(self):
+        return json.dumps(self.as_dict())
 
     def as_dict(self):
         return {'voltageV': self.voltageV,

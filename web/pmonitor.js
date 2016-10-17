@@ -1,7 +1,3 @@
-// Influx DB
-influxdb_host = '0.0.0.0'
-influxdb_port = '8086'
-
 //Query parameters
 power_avg_window = "24h"
 
@@ -19,6 +15,58 @@ month_begin_cost = 0.0
 query_limit = 3
 query_count = 3
 
+//Mqtt vars
+var mqtt;
+var reconnectTimeout = 2000;
+
+// MQTT functions
+function MQTTconnect() {
+        mqtt = new Paho.MQTT.Client(
+                        mqtt_host,
+                        mqtt_port,
+                        "web_" + parseInt(Math.random() * 100,
+                        10));
+        var options = {
+            timeout: 3,
+            useSSL: useTLS,
+            cleanSession: cleansession,
+            onSuccess: onConnect,
+            onFailure: function (message) {
+                console.log("Connection failed: " + message.errorMessage + "Retrying")
+                setTimeout(MQTTconnect, reconnectTimeout);
+            }
+        };
+
+        mqtt.onConnectionLost = onConnectionLost;
+        mqtt.onMessageArrived = onMessageArrived;
+
+        if (username != null) {
+            options.userName = username;
+            options.password = password;
+        }
+        console.log("Host="+ host + ", port=" + port + " TLS = " + useTLS + " username=" + username + " password=" + password);
+        mqtt.connect(options);
+    }
+
+function onConnect() {
+    console.log('Connected to ' + host + ':' + port);
+    // Connection succeeded; subscribe to our topic
+    mqtt.subscribe(topic, {qos: 0});
+    console.log('Subscribed to ' + topic);
+}
+
+function onConnectionLost(response) {
+    setTimeout(MQTTconnect, reconnectTimeout);
+    console.log("connection lost: " + responseObject.errorMessage + ". Reconnecting");
+};
+
+function onMessageArrived(message) {
+    var topic = message.destinationName;
+    var payload = message.payloadString;
+    console.log(payload)
+};
+
+// NVD3 donut behavior
 function overviewPie() {
 	
 	d3objHandles = {};
@@ -327,7 +375,10 @@ function overviewPie() {
 
 
 /* init stuff */
+MQTTconnect();
 overviewPie();
+
+// overviewPie();
 
 
 

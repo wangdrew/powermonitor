@@ -6,7 +6,8 @@ import json
 import os
 import sys
 import argparse
-from DataStore import PowerMetric, KairosDataStore, MqttDataStore
+from DataStore import KairosDataStore, MqttDataStore
+from PowerMetric import PowerMetric
 
 '''
 Configuration params

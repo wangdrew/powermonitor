@@ -1,11 +1,12 @@
 __author__ = 'andrewwang'
 
-import requests
 import copy
-import time
+from time
 import json
-import paho.mqtt.client as mqtt
+
+import requests
 import paho.mqtt.publish as mqtt_publish
+from influxdb import InfluxDBClient
 
 
 class DataStore():
@@ -16,6 +17,28 @@ class DataStore():
     def write_to_store(self, power_metric):
         pass
 
+
+class InfluxDbDataStore(DataStore):
+
+    def __init__(self, influx_ip, influx_port, username, password, db_name):
+        self.template_metric = {"measurement": "", "tags": {}, "time": "", "fields": {}}
+        try:
+            self.influxdb = InfluxDBClient(influx_ip, influx_port, username, password, db_name)
+            self.influxdb.create_database(db_name)
+
+        except Exception as e:
+            print("Error initializing influx client : %s" % str(e))
+
+    def write(self, power_metric):
+# "2009-11-10T23:00:00Z",
+        output = []
+        ts = int(time.time()*1e6)
+        for key in power_metric.as_dict().keys():
+            datapoint = copy.deepcopy(self.template_metric)
+            datapoint
+
+    def read(self, power_metric):
+        pass
 
 class KairosDataStore(DataStore):
     def __init__(self, kairos_ip, kairos_port):
@@ -56,36 +79,3 @@ class InfluxDataStore(DataStore):
     pass
 
 
-class PowerMetric():
-    def __init__(self,
-                 voltageV = None,
-                 currentA = None,
-                 powerW = None,
-                 powerUsedKwh = None,
-                 dailyCost = None,
-                 cumCost = None):
-        self.voltageV = voltageV
-        self.currentA = currentA
-        self.powerW = powerW
-        self.powerUsedKwh = powerUsedKwh
-        self.dailyCost = dailyCost
-        self.cumCost = cumCost
-
-    def as_dict(self):
-        return {'voltageV': self.voltageV,
-                'currentA': self.currentA,
-                'powerW': self.powerW,
-                'powerUsedKwh': self.powerUsedKwh,
-                'dailyCost': self.dailyCost,
-                'cumCost': self.cumCost}
-
-    def __iter__(self):
-        d = self.as_dict()
-        for key in d:
-            yield (key, d[key])
-
-    def __repr__(self):
-        return str(self.as_dict())
-
-    def __str__(self):
-        return str(self.as_dict())
