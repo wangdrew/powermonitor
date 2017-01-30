@@ -147,7 +147,7 @@ def main():
             current = readCh1Current(rawData)
 
             # Retrieve previous reading to determine W-s deltas
-            lastCh1Ws = currentWs
+            lastCh1Ws = currentCh1Ws
             lastAux1Ws = currentAux1Ws
             lastAux2Ws = currentAux2Ws
             lastAux3Ws = currentAux3Ws
@@ -159,8 +159,9 @@ def main():
             currentAux3Ws = readAux3WattSec(rawData)
             currentSec = readSec(rawData)
 
+            # CH1 describes global power usage, hence its used to calculate powerUsed
             power = convertToPowerW(lastCh1Ws, currentCh1Ws, lastSec, currentSec)
-            powerUsedKwh = float(currentWs)/(WS_TO_KWHR_CONV_FACTOR)
+            powerUsedKwh = float(currentCh1Ws)/(WS_TO_KWHR_CONV_FACTOR)
 
             powerAux1 = convertToPowerW(lastAux1Ws, currentAux1Ws, lastSec, currentSec)
             powerAux2 = convertToPowerW(lastAux2Ws, currentAux2Ws, lastSec, currentSec)
