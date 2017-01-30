@@ -45,17 +45,17 @@ def readCh1WattSec(rawData):
 
 def readAux1WattSec(rawData):
     (b0,b1,b2,b3) = rawData[40:44]
-    binValue = b4<<32|b3<<24|b2<<16|b1<<8|b0
+    binValue = b3<<24|b2<<16|b1<<8|b0
     return int(binValue)       # watts seconds
 
 def readAux2WattSec(rawData):
     (b0,b1,b2,b3) = rawData[44:48]
-    binValue = b4<<32|b3<<24|b2<<16|b1<<8|b0
+    binValue = b3<<24|b2<<16|b1<<8|b0
     return int(binValue)       # watts seconds
 
 def readAux3WattSec(rawData):
     (b0,b1,b2,b3) = rawData[48:52]
-    binValue = b4<<32|b3<<24|b2<<16|b1<<8|b0
+    binValue = b3<<24|b2<<16|b1<<8|b0
     return int(binValue)       # watts seconds
 
 '''
@@ -175,11 +175,6 @@ def main():
 
             dailyCost = (powerUsedKwh - kwhrStartToday) * COST_PER_KWHR
             cumulative_cost = powerUsedKwh * COST_PER_KWHR
-
-            print "Metrics"
-            print str(powerAux1)
-            print str(powerAux2)
-            print str(powerAux3)
 
             m = PowerMetric(voltage, current, power, powerUsedKwh, dailyCost, cumulative_cost)
 
