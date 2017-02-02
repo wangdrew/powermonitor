@@ -162,6 +162,9 @@ def main():
             # CH1 describes global power usage, hence its used to calculate powerUsed
             power = convertToPowerW(lastCh1Ws, currentCh1Ws, lastSec, currentSec)
             powerUsedKwh = float(currentCh1Ws)/(WS_TO_KWHR_CONV_FACTOR)
+            powerUsedAux1Kwh = float(currentAux1Ws)/(WS_TO_KWHR_CONV_FACTOR)
+            powerUsedAux2Kwh = float(currentAux2Ws)/(WS_TO_KWHR_CONV_FACTOR)
+            powerUsedAux3Kwh = float(currentAux3Ws)/(WS_TO_KWHR_CONV_FACTOR)
 
             powerAux1 = convertToPowerW(lastAux1Ws, currentAux1Ws, lastSec, currentSec)
             powerAux2 = convertToPowerW(lastAux2Ws, currentAux2Ws, lastSec, currentSec)
@@ -176,7 +179,9 @@ def main():
             dailyCost = (powerUsedKwh - kwhrStartToday) * COST_PER_KWHR
             cumulative_cost = powerUsedKwh * COST_PER_KWHR
 
-            m = PowerMetric(voltage, current, power, powerUsedKwh, dailyCost, cumulative_cost)
+            m = PowerMetric(voltage, current, power, powerAux1, powerAux2, powerAux3, \
+                            powerUsedKwh, powerUsedAux1Kwh, powerUsedAux2Kwh, powerUsedAux3Kwh, \
+                            dailyCost, cumulative_cost)
 
             try:
                 for d in datastores:
