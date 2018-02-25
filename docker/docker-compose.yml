@@ -1,0 +1,22 @@
+version: '3'
+services:
+  influx:
+    image: influxdb:1.4.3
+    ports:
+      - "8086:8086"
+    volumes:
+      - .:/var/lib/influxdb
+    environment:
+      - INFLUXDB_DB=powermonitor
+      - INFLUXDB_ADMIN_PASSWORD=admin
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_HTTP_AUTH_ENABLED=true
+    command:
+      influxd
+  grafana:
+    image: grafana/grafana:4.6.3
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/var/lib/grafana
+
