@@ -6,6 +6,7 @@ import time
 import json
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as mqtt_publish
+from influxdb import InfluxDBClient
 
 
 class DataStore():
@@ -51,9 +52,55 @@ class MqttDataStore(DataStore):
         mqtt_publish.single(self.topic, payload=json.dumps(power_metric.as_dict()), hostname=self.url, port=self.port)
 
 
-# TODO: implement later
 class InfluxDataStore(DataStore):
-    pass
+    def __init__(self, host, port, user, password, dbname):
+        self.client = InfluxDBClient(host, port, user, password, dbname)
+    
+    def write_to_store(self, power_metric):
+        metric = [
+            {
+                "measurement": "voltage",
+                "tags": {"channel": "main"},
+                "fields": {"value": power_metric.voltageV}
+            }, {
+                "measurement": "current",
+                "tags": {"channel": "main"},
+                "fields": {"value": power_metric.currentA}
+            }, {
+                "measurement": "powerW",
+                "tags": {"channel": "main"},
+                "fields": {"value": power_metric.powerW}
+            }, {
+                "measurement": "powerW",
+                "tags": {"channel": "aux1"},
+                "fields": {"value": power_metric.powerAux1W}
+            }, {
+                "measurement": "powerW",
+                "tags": {"channel": "aux2"},
+                "fields": {"value": power_metric.powerAux2W}
+            }, {
+                "measurement": "powerW",
+                "tags": {"channel": "aux3"},
+                "fields": {"value": power_metric.powerAux3W}
+            }, {
+                "measurement": "energyKwh",
+                "tags": {"channel": "main"},
+                "fields": {"value": power_metric.powerUsedKwh}
+            }, {
+                "measurement": "energyKwh",
+                "tags": {"channel": "aux1"},
+                "fields": {"value": power_metric.powerUsedAux1Kwh}
+            }, {
+                "measurement": "energyKwh",
+                "tags": {"channel": "aux2"},
+                "fields": {"value": power_metric.powerUsedAux2Kwh}
+            }, {
+                "measurement": "energyKwh",
+                "tags": {"channel": "aux3"},
+                "fields": {"value": power_metric.powerUsedAux3Kwh}
+            }
+        ]
+        self.client.write_points(metric)
 
 
 class PowerMetric():

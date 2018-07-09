@@ -120,7 +120,8 @@ def main():
 
 
     # datastores = [KairosDataStore(args.ip, args.port)]
-    datastores = [MqttDataStore(args.ip, args.port, 'power')]
+    #datastores = [MqttDataStore(args.ip, args.port, 'power')]
+    datastores = [InfluxDataStore("192.168.69.134", "8086", "", "", "power")] 
     '''
     Open the serial port
     '''
