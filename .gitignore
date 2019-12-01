@@ -1,2 +1,11 @@
 *DS_Store*
 *.idea*
+.venv
+docker/data
+docker/grafana.db
+docker/meta
+docker/sessions
+docker/plugins
+docker/wal
+.influx
+.grafana
